@@ -1,4 +1,6 @@
 package domain.products;
 
-public abstract class Product {
+import interfaces.Loadable;
+
+public abstract class Product implements Loadable {
 }

@@ -1,4 +1,6 @@
 package domain.vehicles;
 
-public abstract class Vehicle {
+import interfaces.Transportable;
+
+public abstract class Vehicle implements Transportable {
 }
