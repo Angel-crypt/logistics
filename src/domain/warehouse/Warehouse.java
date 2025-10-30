@@ -7,16 +7,18 @@ import domain.products.Product;
 import domain.products.ProductFactory;
 import utils.TimeUtils;
 import utils.SimulatedClock;
+import utils.SimulatedWeek;
 
 /**
  * Gestiona el inventario concurrente de productos agrupados por categoría.
  * Permite rellenar el inventario aleatoriamente de forma manual o automática.
+ * El llenado automático solo ocurre entre las 20:00 y las 09:00 horas simuladas.
  *
  * Esta clase es thread-safe y utiliza estructuras concurrentes para manejar
  * operaciones simultáneas sobre el inventario.
  *
  * @author Sistema Logístico
- * @version 1.0
+ * @version 2.0
  */
 public class Warehouse {
 
@@ -25,6 +27,8 @@ public class Warehouse {
     private final Object refillLock = new Object();
     private Thread refillThread;
     private volatile boolean running = false;
+    private SimulatedClock clock;
+    private SimulatedWeek week;
 
     /**
      * Constructor del almacén.
@@ -127,54 +131,119 @@ public class Warehouse {
     }
 
     /**
+     * Determina si el almacén debe realizar el llenado en la hora actual.
+     * El llenado solo ocurre entre las 20:00 y las 09:00 horas.
+     *
+     * @param currentHour Hora simulada actual
+     * @return true si está dentro del horario de llenado, false en caso contrario
+     */
+    private boolean shouldRefill(double currentHour) {
+        int hour = (int) currentHour % 24;
+        // Entre 20:00 (8 PM) y 09:00 (9 AM)
+        return hour >= 20 || hour < 9;
+    }
+
+    /**
      * Inicia el proceso automático de rellenado nocturno del inventario.
-     * Utiliza el reloj simulado para ejecutar el rellenado cada 24 horas simuladas.
+     * El llenado solo ocurre entre las 20:00 y las 09:00 horas simuladas.
      *
      * @param clock Reloj simulado del sistema
+     * @param week Semana simulada del sistema
      */
-    public void startNightlyRefill(SimulatedClock clock) {
+    public void startAutomatedRefill(SimulatedClock clock, SimulatedWeek week) {
         if (running) {
-            System.out.println("⚠️  El rellenado nocturno ya está en ejecución");
+            System.out.println("⚠️  El rellenado automático ya está en ejecución");
             return;
         }
 
+        this.clock = clock;
+        this.week = week;
         running = true;
+
         refillThread = new Thread(() -> {
-            System.out.println("🌙 Servicio de rellenado nocturno iniciado");
+            System.out.println("🌙 Servicio de rellenado automático iniciado");
+            System.out.println("   Horario de operación: 20:00 - 09:00");
+
+            boolean wasRefilling = false;
+            double lastRefillCheck = -1;
 
             try {
                 while (running && !Thread.currentThread().isInterrupted()) {
-                    // Esperar 24 horas simuladas
-                    TimeUtils.sleepSimulated(24.0);
+                    Thread.sleep(100); // Verificar cada 100ms
 
-                    if (!running) break;
+                    double currentHour = clock.getCurrentSimulatedTime();
+                    int hourOfDay = (int) currentHour % 24;
+                    boolean shouldRefillNow = shouldRefill(currentHour);
 
-                    System.out.println("\n🌙 [Hora simulada: " + clock.getCurrentSimulatedTime() +
-                            "] Rellenado nocturno automático");
+                    // Detectar el cambio exacto a las 20:00
+                    if (shouldRefillNow && !wasRefilling && hourOfDay == 20) {
+                        System.out.println("\n[Warehouse] Día: " + week.getCurrentDay() +
+                                " — Iniciando proceso de llenado (20:00)");
+                        wasRefilling = true;
+                        lastRefillCheck = currentHour;
+                    }
 
-                    // Calcular stock objetivo (70-90% de la capacidad máxima)
-                    double targetStock = maxCapacity * (0.7 + Math.random() * 0.2);
-                    fillRandomly(targetStock);
+                    // Detectar el cambio exacto a las 09:00
+                    if (!shouldRefillNow && wasRefilling && hourOfDay == 9) {
+                        System.out.println("\n[Warehouse] Día: " + week.getCurrentDay() +
+                                " — Finalizando proceso de llenado (09:00)");
+                        wasRefilling = false;
+                        lastRefillCheck = currentHour;
+                    }
+
+                    // Realizar llenado si estamos en horario permitido
+                    if (shouldRefillNow && wasRefilling) {
+                        // Realizar llenado cada hora simulada aproximadamente
+                        if (currentHour - lastRefillCheck >= 1.0) {
+                            double currentLoad = getCurrentLoad();
+                            double capacityNeeded = maxCapacity - currentLoad;
+
+                            if (capacityNeeded > 100) { // Solo llenar si necesita más de 100kg
+                                System.out.println("\n[Warehouse] Llenando almacén... Día: " +
+                                        week.getCurrentDay() + ", Hora: " +
+                                        String.format("%.1f", currentHour % 24));
+
+                                // Calcular stock objetivo (llenar hasta 70-90% de capacidad)
+                                double targetStock = maxCapacity * (0.7 + Math.random() * 0.2) - currentLoad;
+                                if (targetStock > 0) {
+                                    fillRandomly(targetStock);
+                                }
+                            }
+                            lastRefillCheck = currentHour;
+                        }
+                    }
+
+                    // Mostrar mensaje si estamos fuera del horario
+                    if (!shouldRefillNow && !wasRefilling) {
+                        // Solo mostrar una vez al cambiar de estado
+                        if (lastRefillCheck == -1 || (int)(lastRefillCheck % 24) != hourOfDay) {
+                            if (hourOfDay >= 9 && hourOfDay < 20) {
+                                System.out.println("\n[Warehouse] Llenado pausado — fuera del horario permitido. " +
+                                        "(Hora actual: " + hourOfDay + ":00)");
+                                lastRefillCheck = currentHour;
+                            }
+                        }
+                    }
                 }
             } catch (InterruptedException e) {
-                System.out.println("🌙 Servicio de rellenado nocturno detenido");
+                System.out.println("🌙 Servicio de rellenado automático detenido");
                 Thread.currentThread().interrupt();
             }
         });
 
-        refillThread.setName("NightlyRefillThread");
+        refillThread.setName("AutomatedRefillThread");
         refillThread.setDaemon(true);
         refillThread.start();
     }
 
     /**
-     * Detiene el servicio de rellenado nocturno.
+     * Detiene el servicio de rellenado automático.
      */
-    public void stopNightlyRefill() {
+    public void stopAutomatedRefill() {
         running = false;
         if (refillThread != null && refillThread.isAlive()) {
             refillThread.interrupt();
-            System.out.println("🛑 Deteniendo servicio de rellenado nocturno...");
+            System.out.println("🛑 Deteniendo servicio de rellenado automático...");
         }
     }
 
