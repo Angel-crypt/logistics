@@ -5,5 +5,6 @@ public class Test {
         //testCategory.run();
         testTime.run();
        // testProduct.run();
+        //testWarehouse.run();
     }
 }

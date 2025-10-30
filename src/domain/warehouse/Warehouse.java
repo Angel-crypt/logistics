@@ -10,8 +10,7 @@ import utils.SimulatedClock;
 
 /**
  * Gestiona el inventario concurrente de productos agrupados por categoría.
- * Permite rellenar el inventario aleatoriamente, seleccionar productos para entrega,
- * y actualizar el stock tras la entrega.
+ * Permite rellenar el inventario aleatoriamente de forma manual o automática.
  *
  * Esta clase es thread-safe y utiliza estructuras concurrentes para manejar
  * operaciones simultáneas sobre el inventario.
@@ -128,99 +127,6 @@ public class Warehouse {
     }
 
     /**
-     * Selecciona productos aleatoriamente del inventario para una entrega.
-     * Este método es thread-safe y remueve temporalmente los productos seleccionados.
-     *
-     * @param destination Destino de la entrega
-     * @param maxLoad Peso máximo permitido para la entrega en kilogramos
-     * @return Lista de productos seleccionados para la entrega
-     */
-    public synchronized List<Product> getProductsForDelivery(String destination, double maxLoad) {
-        List<Product> selectedProducts = new ArrayList<>();
-        double currentWeight = 0;
-
-        System.out.println("\n🚚 Preparando entrega para: " + destination);
-        System.out.println("   Carga máxima permitida: " + maxLoad + " kg");
-
-        // Crear lista de todos los productos disponibles
-        List<Product> availableProducts = new ArrayList<>();
-        for (List<Product> products : inventory.values()) {
-            availableProducts.addAll(products);
-        }
-
-        if (availableProducts.isEmpty()) {
-            System.out.println("   ⚠️  No hay productos disponibles en el inventario");
-            return selectedProducts;
-        }
-
-        // Mezclar productos para selección aleatoria
-        Collections.shuffle(availableProducts);
-
-        // Seleccionar productos hasta alcanzar la carga máxima
-        for (Product product : availableProducts) {
-            if (currentWeight + product.getWeight() <= maxLoad) {
-                selectedProducts.add(product);
-                currentWeight += product.getWeight();
-
-                System.out.println("   ✓ Seleccionado: " + product.getName() +
-                        " (" + String.format("%.2f", product.getWeight()) + " kg)");
-            }
-
-            if (currentWeight >= maxLoad * 0.95) { // 95% de la carga máxima
-                break;
-            }
-        }
-
-        // Remover temporalmente los productos seleccionados
-        for (Product product : selectedProducts) {
-            for (List<Product> categoryProducts : inventory.values()) {
-                if (categoryProducts.remove(product)) {
-                    break;
-                }
-            }
-        }
-
-        System.out.println("\n   📊 Resumen de selección:");
-        System.out.println("   • Productos seleccionados: " + selectedProducts.size());
-        System.out.println("   • Peso total: " + String.format("%.2f", currentWeight) + " kg");
-        System.out.println("   • Utilización: " + String.format("%.1f", (currentWeight/maxLoad)*100) + "%");
-
-        return selectedProducts;
-    }
-
-    /**
-     * Actualiza el inventario después de una entrega exitosa.
-     * Confirma la remoción definitiva de los productos entregados.
-     *
-     * @param delivered Lista de productos que fueron entregados
-     */
-    public void updateAfterDelivery(List<Product> delivered) {
-        if (delivered == null || delivered.isEmpty()) {
-            System.out.println("⚠️  No hay productos para actualizar");
-            return;
-        }
-
-        double deliveredWeight = 0;
-        Map<Category, Integer> categoryCount = new HashMap<>();
-
-        for (Product product : delivered) {
-            deliveredWeight += product.getWeight();
-            categoryCount.merge(product.getCategory(), 1, Integer::sum);
-        }
-
-        System.out.println("\n✅ Actualización de inventario post-entrega:");
-        System.out.println("   • Productos entregados: " + delivered.size());
-        System.out.println("   • Peso entregado: " + String.format("%.2f", deliveredWeight) + " kg");
-        System.out.println("   • Distribución por categoría:");
-
-        categoryCount.forEach((category, count) ->
-                System.out.println("     - " + category + ": " + count + " productos")
-        );
-
-        System.out.println("   • Carga restante: " + String.format("%.2f", getCurrentLoad()) + "/" + maxCapacity + " kg");
-    }
-
-    /**
      * Inicia el proceso automático de rellenado nocturno del inventario.
      * Utiliza el reloj simulado para ejecutar el rellenado cada 24 horas simuladas.
      *
@@ -277,7 +183,7 @@ public class Warehouse {
      *
      * @return Peso total actual en kilogramos
      */
-    private double getCurrentLoad() {
+    public double getCurrentLoad() {
         return inventory.values().stream()
                 .flatMap(List::stream)
                 .mapToDouble(Product::getWeight)
@@ -287,7 +193,7 @@ public class Warehouse {
     /**
      * Imprime un resumen del inventario actual por categoría.
      */
-    private void printInventorySummary() {
+    public void printInventorySummary() {
         System.out.println("\n📊 Resumen de inventario por categoría:");
 
         for (Category category : Category.values()) {
