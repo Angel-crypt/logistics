@@ -86,34 +86,54 @@ public class LogisticsSimulator {
         // Inicializar camiones locales
         initializeLocalTrucks();
         
-        // Llenar almacén inicial
+        // Llenar almacén inicial y establecer carga de referencia
         System.out.println("\n[INIT] Llenando almacén inicial...");
-        warehouse.fillRandomly(5000.0);
+        warehouse.fillRandomly(20000.0); // Aumentado de 5000 a 20000 kg para soportar más entregas
+        // La carga inicial será la referencia para el primer día
+        warehouse.setInitialLoadReference();
+        
+        // Iniciar servicio de rellenado automático
+        warehouse.startAutomatedRefill(clock, week);
         
         System.out.println("\n[OK] Sistema logístico inicializado correctamente");
     }
 
     /**
      * Inicializa vehículos para entregas foráneas.
+     * IMPORTANTE: El orden de creación debe coincidir con FORANE_CITIES.
      */
     private void initializeForaneVehicles() {
         System.out.println("\n[INIT] Inicializando vehículos foráneos...");
+        System.out.println("[INIT] Ciudades foráneas: " + String.join(", ", FORANE_CITIES));
+        
+        // Limpiar listas antes de inicializar
+        foraneTrucks.clear();
+        foraneAirplanes.clear();
         
         // 1 camión por ciudad para días terrestres (Lunes, Miércoles, Viernes)
-        for (String city : FORANE_CITIES) {
+        // El orden DEBE coincidir con FORANE_CITIES
+        for (int i = 0; i < FORANE_CITIES.length; i++) {
+            String city = FORANE_CITIES[i];
             Truck truck = new Truck(500.0, DISTRIBUTION_CENTER);
             truck.setCurrentLocation(DISTRIBUTION_CENTER);
             foraneTrucks.add(truck);
             deliveryService.registerVehicle(truck);
+            System.out.println(String.format("[INIT] Camión %d asignado a %s", i, city));
         }
         
         // 1 avión por ciudad para días aéreos (Domingo, Jueves)
-        for (String city : FORANE_CITIES) {
+        // El orden DEBE coincidir con FORANE_CITIES
+        for (int i = 0; i < FORANE_CITIES.length; i++) {
+            String city = FORANE_CITIES[i];
             Airplane airplane = new Airplane(1000.0, DISTRIBUTION_CENTER + " Aeropuerto");
             airplane.setCurrentLocation(DISTRIBUTION_CENTER + " Aeropuerto");
             foraneAirplanes.add(airplane);
             deliveryService.registerVehicle(airplane);
+            System.out.println(String.format("[INIT] Avión %d asignado a %s", i, city));
         }
+        
+        System.out.println(String.format("[INIT] Total camiones: %d, Total aviones: %d", 
+            foraneTrucks.size(), foraneAirplanes.size()));
     }
 
     /**
@@ -140,6 +160,7 @@ public class LogisticsSimulator {
 
     /**
      * Ejecuta el proceso de entregas foráneas según el día.
+     * Cada vehículo ejecuta su entrega en un hilo separado (paralelo).
      */
     private void processForaneDeliveries() {
         String currentDay = week.getCurrentDay();
@@ -157,66 +178,99 @@ public class LogisticsSimulator {
         System.out.println(String.format("\n[FORANE] %s - Entregas foráneas por %s (capacidad: %.0f kg)", 
             currentDay, vehicleType, capacityPerVehicle));
         
+        List<Thread> deliveryThreads = new ArrayList<>();
+        
         for (int i = 0; i < FORANE_CITIES.length; i++) {
             String city = FORANE_CITIES[i];
+            
+            // Verificar que tenemos suficientes vehículos
+            if (i >= availableVehicles.size()) {
+                System.out.println(String.format("[ERROR] No hay vehículo disponible para %s (índice %d, vehículos disponibles: %d)", 
+                    city, i, availableVehicles.size()));
+                continue;
+            }
+            
             Vehicle vehicle = availableVehicles.get(i);
+            final boolean isTruck = isTruckDay;
+            final double capacity = capacityPerVehicle;
+            final int cityIndex = i; // Capturar índice para uso en el hilo
             
-            // Verificar que el vehículo esté disponible
-            if (vehicle.isInTransit()) {
-                System.out.println(String.format("[WARNING] Vehículo para %s aún en tránsito", city));
-                continue;
-            }
+            System.out.println(String.format("[FORANE] Asignando vehículo %d (%s) a ciudad %s", 
+                i, vehicle.getClass().getSimpleName(), city));
             
-            // Asegurar que el vehículo esté en GDL
-            if (isTruckDay) {
-                vehicle.setCurrentLocation(DISTRIBUTION_CENTER);
-            } else {
-                vehicle.setCurrentLocation(DISTRIBUTION_CENTER + " Aeropuerto");
-            }
-            
-            // Obtener productos del inventario
-            List<Product> products = selectProductsForDelivery(capacityPerVehicle);
-            
-            if (products.isEmpty()) {
-                System.out.println(String.format("[WARNING] No hay productos suficientes para entrega a %s", city));
-                continue;
-            }
-            
-            // Crear tarea de entrega
-            DeliveryTask task = deliveryService.createDeliveryTask(products, city);
-            
-            if (task != null) {
-                // Asegurar que el vehículo esté disponible (no en tránsito y vacío)
+            // Crear un hilo para cada entrega
+            Thread deliveryThread = new Thread(() -> {
+                // Verificar que el vehículo esté disponible
                 if (vehicle.isInTransit()) {
-                    System.out.println(String.format("[WARNING] Vehículo para %s aún está en tránsito, esperando...", city));
-                    continue;
+                    System.out.println(String.format("[WARNING] Vehículo %d para %s aún en tránsito", cityIndex, city));
+                    return;
                 }
                 
-                // Si el vehículo tiene carga, debe descargar primero (esto no debería pasar, pero por seguridad)
-                if (!vehicle.isEmpty()) {
-                    vehicle.unload();
+                // Asegurar que el vehículo esté en GDL
+                if (isTruck) {
+                    vehicle.setCurrentLocation(DISTRIBUTION_CENTER);
+                } else {
+                    vehicle.setCurrentLocation(DISTRIBUTION_CENTER + " Aeropuerto");
                 }
                 
-                // Asignar vehículo específico antes de ejecutar
-                if (!task.assignVehicle(vehicle)) {
-                    System.out.println(String.format("[WARNING] No se pudo asignar vehículo a la tarea para %s", city));
-                    continue;
-                }
-                
-                // Ejecutar entrega (assignAndExecuteDelivery verificará nuevamente la asignación)
-                boolean success = deliveryService.assignAndExecuteDelivery(task);
-                
-                if (success) {
-                    deliveryCounters.put(city, deliveryCounters.get(city) + 1);
-                    int deliveryNum = deliveryCounters.get(city);
+                try {
+                    // Obtener productos del inventario
+                    List<Product> products = selectProductsForDelivery(capacity);
                     
-                    // Generar reporte por ciudad-envío
-                    deliveryService.generateCityDeliveryReport(city, deliveryNum, task);
+                    if (products.isEmpty()) {
+                        System.out.println(String.format("[WARNING] No hay productos suficientes para entrega a %s", city));
+                        return;
+                    }
+                    
+                    System.out.println(String.format("[FORANE] Ciudad %s: Seleccionados %d productos (%.2f kg)", 
+                        city, products.size(), products.stream().mapToDouble(Product::getWeight).sum()));
+                    
+                    // Crear tarea de entrega
+                    DeliveryTask task = deliveryService.createDeliveryTask(products, city);
+                    
+                    if (task == null) {
+                        System.out.println(String.format("[WARNING] No se pudo crear tarea de entrega para %s", city));
+                        return;
+                    }
+                    
+                    // Asegurar que el vehículo esté disponible (no en tránsito y vacío)
+                    if (vehicle.isInTransit()) {
+                        System.out.println(String.format("[WARNING] Vehículo %d para %s aún está en tránsito", cityIndex, city));
+                        return;
+                    }
+                    
+                    // Si el vehículo tiene carga, debe descargar primero
+                    if (!vehicle.isEmpty()) {
+                        vehicle.unload();
+                    }
+                    
+                    // Asignar vehículo específico antes de ejecutar
+                    if (!task.assignVehicle(vehicle)) {
+                        System.out.println(String.format("[WARNING] No se pudo asignar vehículo %d a la tarea para %s", cityIndex, city));
+                        return;
+                    }
+                    
+                    // Ejecutar entrega (assignAndExecuteDelivery verificará nuevamente la asignación)
+                    boolean success = deliveryService.assignAndExecuteDelivery(task);
+                    
+                    if (success) {
+                        synchronized (deliveryCounters) {
+                            deliveryCounters.put(city, deliveryCounters.get(city) + 1);
+                            int deliveryNum = deliveryCounters.get(city);
+                            
+                            System.out.println(String.format("[OK] Entrega a %s completada exitosamente (envío #%d)", city, deliveryNum));
+                            
+                            // Generar reporte por ciudad-envío
+                            deliveryService.generateCityDeliveryReport(city, deliveryNum, task);
+                        }
+                    } else {
+                        System.out.println(String.format("[ERROR] Falló la ejecución de entrega a %s", city));
+                    }
                     
                     // Regresar vehículo a GDL después de la entrega
                     try {
                         TimeUtils.sleepSimulated(0.5); // Tiempo de retorno
-                        if (isTruckDay) {
+                        if (isTruck) {
                             vehicle.setCurrentLocation(DISTRIBUTION_CENTER);
                         } else {
                             vehicle.setCurrentLocation(DISTRIBUTION_CENTER + " Aeropuerto");
@@ -225,13 +279,30 @@ public class LogisticsSimulator {
                         Thread.currentThread().interrupt();
                         return;
                     }
+                } catch (Exception e) {
+                    System.out.println(String.format("[ERROR] Excepción en entrega a %s: %s", city, e.getMessage()));
+                    e.printStackTrace();
                 }
+            }, "DeliveryThread-" + city + "-" + vehicleType);
+            
+            deliveryThreads.add(deliveryThread);
+            deliveryThread.start();
+        }
+        
+        // Esperar a que todas las entregas terminen
+        for (Thread thread : deliveryThreads) {
+            try {
+                thread.join();
+            } catch (InterruptedException e) {
+                System.out.println("[WARNING] Hilo de entrega interrumpido");
+                Thread.currentThread().interrupt();
             }
         }
     }
 
     /**
      * Ejecuta el proceso de entregas locales en GDL.
+     * Cada camión ejecuta sus entregas en un hilo separado (paralelo).
      */
     private void processLocalDeliveries() {
         System.out.println("\n[LOCAL] Iniciando entregas locales en GDL...");
@@ -239,55 +310,83 @@ public class LogisticsSimulator {
         // Cada camión realiza 8 envíos diarios
         int deliveriesPerTruck = 8;
         
+        List<Thread> truckThreads = new ArrayList<>();
+        
         for (Truck truck : localTrucks) {
             double truckCapacity = truck.getMaxCapacity();
             
-            for (int delivery = 1; delivery <= deliveriesPerTruck; delivery++) {
-                // Seleccionar productos según capacidad del camión
-                double targetWeight = truckCapacity * (0.5 + Math.random() * 0.4); // Entre 50-90% de capacidad
-                List<Product> products = selectProductsForDelivery(targetWeight);
-                
-                if (products.isEmpty()) {
-                    System.out.println(String.format("[WARNING] No hay productos suficientes para entrega local #%d", delivery));
-                    continue;
-                }
-                
-                // Crear tarea de entrega local
-                DeliveryTask task = deliveryService.createDeliveryTask(products, "GDL");
-                
-                if (task != null) {
-                    // Esperar a que el camión regrese si está en tránsito
-                    while (truck.isInTransit()) {
-                        try {
-                            Thread.sleep(100);
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                            return;
+            // Crear un hilo para cada camión
+            Thread truckThread = new Thread(() -> {
+                for (int delivery = 1; delivery <= deliveriesPerTruck; delivery++) {
+                    // Seleccionar productos según capacidad del camión
+                    double targetWeight = truckCapacity * (0.5 + Math.random() * 0.4); // Entre 50-90% de capacidad
+                    List<Product> products = selectProductsForDelivery(targetWeight);
+                    
+                    if (products.isEmpty()) {
+                        System.out.println(String.format("[WARNING] No hay productos suficientes para entrega local #%d", delivery));
+                        continue;
+                    }
+                    
+                    // Crear tarea de entrega local
+                    DeliveryTask task = deliveryService.createDeliveryTask(products, "GDL");
+                    
+                    if (task != null) {
+                        // Esperar a que el camión regrese si está en tránsito
+                        while (truck.isInTransit()) {
+                            try {
+                                Thread.sleep(100);
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                                return;
+                            }
+                        }
+                        
+                        // Asegurar que el camión esté en GDL
+                        truck.setCurrentLocation(DISTRIBUTION_CENTER);
+                        
+                        // Asignar camión específico
+                        if (!task.assignVehicle(truck)) {
+                            System.out.println(String.format("[WARNING] No se pudo asignar camión a la tarea local #%d", delivery));
+                            continue;
+                        }
+                        
+                        // Ejecutar entrega
+                        boolean success = deliveryService.assignAndExecuteDelivery(task);
+                        
+                        if (success) {
+                            synchronized (deliveryCounters) {
+                                deliveryCounters.put("GDL", deliveryCounters.get("GDL") + 1);
+                                int deliveryNum = deliveryCounters.get("GDL");
+                                String currentDay = week.getCurrentDay();
+                                int dayNumber = clock.getCurrentDay();
+                                
+                                // Generar reporte por ciudad-envío con estructura por día para GDL
+                                deliveryService.generateCityDeliveryReport("GDL", deliveryNum, task, currentDay, dayNumber);
+                            }
                         }
                     }
                     
-                    // Asignar camión específico
-                    task.assignVehicle(truck);
-                    
-                    // Ejecutar entrega
-                    boolean success = deliveryService.assignAndExecuteDelivery(task);
-                    
-                    if (success) {
-                        deliveryCounters.put("GDL", deliveryCounters.get("GDL") + 1);
-                        int deliveryNum = deliveryCounters.get("GDL");
-                        
-                        // Generar reporte por ciudad-envío
-                        deliveryService.generateCityDeliveryReport("GDL", deliveryNum, task);
+                    // Pequeña pausa entre entregas del mismo camión
+                    try {
+                        TimeUtils.sleepSimulated(0.5);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        return;
                     }
                 }
-                
-                // Pequeña pausa entre entregas del mismo camión
-                try {
-                    TimeUtils.sleepSimulated(0.5);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    return;
-                }
+            }, "LocalTruckThread-" + truck.getClass().getSimpleName() + "-" + truck.getMaxCapacity() + "kg");
+            
+            truckThreads.add(truckThread);
+            truckThread.start();
+        }
+        
+        // Esperar a que todas las entregas locales terminen
+        for (Thread thread : truckThreads) {
+            try {
+                thread.join();
+            } catch (InterruptedException e) {
+                System.out.println("[WARNING] Hilo de entrega local interrumpido");
+                Thread.currentThread().interrupt();
             }
         }
     }
@@ -296,63 +395,73 @@ public class LogisticsSimulator {
      * Selecciona productos del inventario para una entrega.
      * NOTA: Los productos NO se remueven del inventario aquí,
      * solo se seleccionan. Se remueven cuando se ejecuta la entrega.
+     * 
+     * Sincronizado para evitar que múltiples hilos seleccionen los mismos productos.
      */
+    private final Object selectionLock = new Object();
+    
     private List<Product> selectProductsForDelivery(double targetWeight) {
-        List<Product> selectedProducts = new ArrayList<>();
-        double currentWeight = 0.0;
-        int maxIterations = 1000; // Limitar iteraciones para evitar bucles infinitos
-        int iteration = 0;
-        
-        Map<Category, List<Product>> inventory = warehouse.getInventory();
-        List<Category> categories = new ArrayList<>(inventory.keySet());
-        Collections.shuffle(categories);
-        
-        // Crear una copia de las categorías para poder reintentar
-        List<Category> allCategories = new ArrayList<>(categories);
-        
-        while (currentWeight < targetWeight && iteration < maxIterations) {
-            iteration++;
+        synchronized (selectionLock) {
+            List<Product> selectedProducts = new ArrayList<>();
+            double currentWeight = 0.0;
+            int maxIterations = 1000; // Limitar iteraciones para evitar bucles infinitos
+            int iteration = 0;
             
-            // Si no quedan categorías, reintentar desde el principio
-            if (categories.isEmpty()) {
-                if (selectedProducts.isEmpty()) {
-                    break; // No hay productos disponibles
-                }
-                categories = new ArrayList<>(allCategories);
-            }
+            Map<Category, List<Product>> inventory = warehouse.getInventory();
+            List<Category> categories = new ArrayList<>(inventory.keySet());
+            Collections.shuffle(categories);
             
-            Category category = categories.get(0);
-            List<Product> categoryProducts = inventory.get(category);
+            // Crear una copia de las categorías para poder reintentar
+            List<Category> allCategories = new ArrayList<>(categories);
             
-            if (categoryProducts != null && !categoryProducts.isEmpty()) {
-                // Buscar un producto que quepa y no esté ya seleccionado
-                boolean found = false;
-                for (Product product : categoryProducts) {
-                    // Verificar que el producto no haya sido ya seleccionado
-                    if (!selectedProducts.contains(product) && 
-                        currentWeight + product.getWeight() <= targetWeight) {
-                        selectedProducts.add(product);
-                        currentWeight += product.getWeight();
-                        found = true;
-                        break;
+            while (currentWeight < targetWeight && iteration < maxIterations) {
+                iteration++;
+                
+                // Si no quedan categorías, reintentar desde el principio
+                if (categories.isEmpty()) {
+                    if (selectedProducts.isEmpty()) {
+                        break; // No hay productos disponibles
                     }
+                    categories = new ArrayList<>(allCategories);
                 }
                 
-                if (!found) {
-                    // No hay productos que quepan de esta categoría
+                Category category = categories.get(0);
+                List<Product> categoryProducts = inventory.get(category);
+                
+                if (categoryProducts != null && !categoryProducts.isEmpty()) {
+                    // Buscar un producto que quepa y no esté ya seleccionado
+                    boolean found = false;
+                    // Iterar sobre una copia para evitar problemas de concurrencia
+                    List<Product> productsCopy = new ArrayList<>(categoryProducts);
+                    for (Product product : productsCopy) {
+                        // Verificar que el producto no haya sido ya seleccionado
+                        // y que todavía esté disponible en el inventario
+                        if (!selectedProducts.contains(product) && 
+                            categoryProducts.contains(product) && // Verificar que todavía existe
+                            currentWeight + product.getWeight() <= targetWeight) {
+                            selectedProducts.add(product);
+                            currentWeight += product.getWeight();
+                            found = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!found) {
+                        // No hay productos que quepan de esta categoría
+                        categories.remove(0);
+                    }
+                } else {
                     categories.remove(0);
                 }
-            } else {
-                categories.remove(0);
+                
+                // Si ya tenemos algo cercano al peso objetivo, detener
+                if (currentWeight >= targetWeight * 0.8) {
+                    break;
+                }
             }
             
-            // Si ya tenemos algo cercano al peso objetivo, detener
-            if (currentWeight >= targetWeight * 0.8) {
-                break;
-            }
+            return selectedProducts;
         }
-        
-        return selectedProducts;
     }
 
     /**

@@ -280,6 +280,20 @@ public class DeliveryService {
      * @param task Tarea de entrega
      */
     public void generateCityDeliveryReport(String city, int deliveryNumber, DeliveryTask task) {
+        generateCityDeliveryReport(city, deliveryNumber, task, null, 0);
+    }
+    
+    /**
+     * Genera un reporte específico por ciudad y envío.
+     * Para GDL, organiza los reportes por día.
+     *
+     * @param city Ciudad de destino
+     * @param deliveryNumber Número de envío
+     * @param task Tarea de entrega
+     * @param dayName Nombre del día (opcional, usado para GDL)
+     * @param dayNumber Número del día (opcional, usado para GDL)
+     */
+    public void generateCityDeliveryReport(String city, int deliveryNumber, DeliveryTask task, String dayName, int dayNumber) {
         DeliveryReport cityReport = new DeliveryReport(
             String.format("Reporte de Entrega - %s - Envío #%d", city, deliveryNumber)
         );
@@ -322,8 +336,15 @@ public class DeliveryService {
             cityReport.addEntry(entry.getKey() + ": " + entry.getValue() + " productos");
         }
         
-        // Guardar en carpeta reports con estructura: reports/{ciudad}/envio_{numero}.txt
-        String fileName = String.format("reports/%s/envio_%d.txt", city, deliveryNumber);
+        // Guardar en carpeta reports
+        // Para GDL: reports/GDL/Dia_{numero}/envio_{numero}.txt
+        // Para otras ciudades: reports/{ciudad}/envio_{numero}.txt
+        String fileName;
+        if ("GDL".equals(city) && dayNumber > 0) {
+            fileName = String.format("reports/%s/Dia_%d/envio_%d.txt", city, dayNumber, deliveryNumber);
+        } else {
+            fileName = String.format("reports/%s/envio_%d.txt", city, deliveryNumber);
+        }
         cityReport.saveEntry(fileName);
     }
 

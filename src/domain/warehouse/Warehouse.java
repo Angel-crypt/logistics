@@ -29,6 +29,8 @@ public class Warehouse {
     private volatile boolean running = false;
     private SimulatedClock clock;
     private SimulatedWeek week;
+    private double loadAtDayStart = 0.0; // Carga del almacén al inicio del día (8:00 AM)
+    private boolean hasRefilledToday = false; // Flag para controlar rellenado una vez por día
 
     /**
      * Constructor del almacén.
@@ -46,6 +48,8 @@ public class Warehouse {
         }
 
         System.out.println("[WAREHOUSE] Warehouse inicializado con capacidad máxima: " + maxCapacity + " kg");
+        this.loadAtDayStart = 0.0;
+        this.hasRefilledToday = false;
     }
 
     /**
@@ -132,20 +136,21 @@ public class Warehouse {
 
     /**
      * Determina si el almacén debe realizar el llenado en la hora actual.
-     * El llenado solo ocurre entre las 20:00 y las 09:00 horas.
+     * El llenado solo ocurre entre las 21:00 (9 PM) y las 08:00 (8 AM) horas.
      *
      * @param currentHour Hora simulada actual
      * @return true si está dentro del horario de llenado, false en caso contrario
      */
     private boolean shouldRefill(double currentHour) {
         int hour = (int) currentHour % 24;
-        // Entre 20:00 (8 PM) y 09:00 (9 AM)
-        return hour >= 20 || hour < 9;
+        // Entre 21:00 (9 PM) y 08:00 (8 AM)
+        return hour >= 21 || hour < 8;
     }
 
     /**
      * Inicia el proceso automático de rellenado nocturno del inventario.
-     * El llenado solo ocurre entre las 20:00 y las 09:00 horas simuladas.
+     * El llenado solo ocurre entre las 21:00 (9 PM) y las 08:00 (8 AM) horas simuladas.
+     * Solo rellena el faltante del día anterior (lo consumido durante el día).
      *
      * @param clock Reloj simulado del sistema
      * @param week Semana simulada del sistema
@@ -161,11 +166,12 @@ public class Warehouse {
         running = true;
 
         refillThread = new Thread(() -> {
-            System.out.println("🌙 Servicio de rellenado automático iniciado");
-            System.out.println("   Horario de operación: 20:00 - 09:00");
+            System.out.println("[WAREHOUSE] Servicio de rellenado automático iniciado");
+            System.out.println("   Horario de operación: 21:00 (9 PM) - 08:00 (8 AM)");
 
-            boolean wasRefilling = false;
-            double lastRefillCheck = -1;
+            int lastDay = -1;
+            double lastSaveHour = -1;
+            double lastRefillHour = -1;
 
             try {
                 while (running && !Thread.currentThread().isInterrupted()) {
@@ -173,60 +179,80 @@ public class Warehouse {
 
                     double currentHour = clock.getCurrentSimulatedTime();
                     int hourOfDay = (int) currentHour % 24;
+                    int currentDay = (int) (currentHour / 24);
                     boolean shouldRefillNow = shouldRefill(currentHour);
 
-                    // Detectar el cambio exacto a las 20:00
-                    if (shouldRefillNow && !wasRefilling && hourOfDay == 20) {
-                        System.out.println("\n[Warehouse] Día: " + week.getCurrentDay() +
-                                " — Iniciando proceso de llenado (20:00)");
-                        wasRefilling = true;
-                        lastRefillCheck = currentHour;
+                    // Detectar cambio de día (cuando pasa de un día a otro)
+                    if (lastDay != -1 && currentDay != lastDay) {
+                        hasRefilledToday = false; // Resetear flag al cambiar de día
+                        lastDay = currentDay;
+                    } else if (lastDay == -1) {
+                        lastDay = currentDay;
                     }
 
-                    // Detectar el cambio exacto a las 09:00
-                    if (!shouldRefillNow && wasRefilling && hourOfDay == 9) {
-                        System.out.println("\n[Warehouse] Día: " + week.getCurrentDay() +
-                                " — Finalizando proceso de llenado (09:00)");
-                        wasRefilling = false;
-                        lastRefillCheck = currentHour;
-                    }
-
-                    // Realizar llenado si estamos en horario permitido
-                    if (shouldRefillNow && wasRefilling) {
-                        // Realizar llenado cada hora simulada aproximadamente
-                        if (currentHour - lastRefillCheck >= 1.0) {
-                            double currentLoad = getCurrentLoad();
-                            double capacityNeeded = maxCapacity - currentLoad;
-
-                            if (capacityNeeded > 100) { // Solo llenar si necesita más de 100kg
-                                System.out.println("\n[Warehouse] Llenando almacén... Día: " +
-                                        week.getCurrentDay() + ", Hora: " +
-                                        String.format("%.1f", currentHour % 24));
-
-                                // Calcular stock objetivo (llenar hasta 70-90% de capacidad)
-                                double targetStock = maxCapacity * (0.7 + Math.random() * 0.2) - currentLoad;
-                                if (targetStock > 0) {
-                                    fillRandomly(targetStock);
-                                }
+                    // A las 8:00 AM, solo mostrar la carga de referencia actual
+                    // (La carga de referencia se actualiza automáticamente después del rellenado a las 21:00)
+                    if (hourOfDay == 8 && !shouldRefillNow) {
+                        int dayOfSave = (int)(lastSaveHour / 24);
+                        if (lastSaveHour == -1 || currentDay > dayOfSave) {
+                            synchronized (refillLock) {
+                                // Solo mostrar la carga de referencia, que ya fue establecida después del rellenado anterior
+                                System.out.println("\n[WAREHOUSE] Día: " + week.getCurrentDay() +
+                                        " - Carga de referencia para el día (8:00 AM): " + String.format("%.2f", loadAtDayStart) + " kg");
+                                lastSaveHour = currentHour;
                             }
-                            lastRefillCheck = currentHour;
                         }
                     }
 
-                    // Mostrar mensaje si estamos fuera del horario
-                    if (!shouldRefillNow && !wasRefilling) {
-                        // Solo mostrar una vez al cambiar de estado
-                        if (lastRefillCheck == -1 || (int)(lastRefillCheck % 24) != hourOfDay) {
-                            if (hourOfDay >= 9 && hourOfDay < 20) {
-                                System.out.println("\n[Warehouse] Llenado pausado — fuera del horario permitido. " +
-                                        "(Hora actual: " + hourOfDay + ":00)");
-                                lastRefillCheck = currentHour;
+                    // Detectar el inicio exacto del horario de rellenado (21:00) y rellenar solo una vez por día
+                    if (shouldRefillNow && hourOfDay == 21 && !hasRefilledToday) {
+                        int dayOfLastRefill = lastRefillHour == -1 ? -1 : (int)(lastRefillHour / 24);
+                        if (lastRefillHour == -1 || currentDay > dayOfLastRefill) {
+                            synchronized (refillLock) {
+                                double currentLoad = getCurrentLoad();
+                                
+                                // Calcular el faltante: lo que había al inicio del día (8:00 AM) menos lo que hay ahora (21:00)
+                                // (Esto es lo que se consumió/entregó durante el día de operación)
+                                double consumed = loadAtDayStart - currentLoad;
+                                
+                                if (consumed > 0) {
+                                    System.out.println("\n[WAREHOUSE] Día: " + week.getCurrentDay() +
+                                            " - Iniciando rellenado de faltante (21:00)");
+                                    System.out.println("   - Carga al inicio del día (8:00 AM): " + String.format("%.2f", loadAtDayStart) + " kg");
+                                    System.out.println("   - Carga actual (21:00): " + String.format("%.2f", currentLoad) + " kg");
+                                    System.out.println("   - Faltante a reponer: " + String.format("%.2f", consumed) + " kg");
+                                    
+                                    // Solo rellenar el faltante (lo consumido durante el día)
+                                    fillRandomly(consumed);
+                                    
+                                    // Actualizar la carga de referencia con la nueva carga después del rellenado
+                                    loadAtDayStart = getCurrentLoad();
+                                    
+                                    hasRefilledToday = true;
+                                    lastRefillHour = currentHour;
+                                    
+                                    System.out.println("[WAREHOUSE] Rellenado completado. Carga nueva: " + 
+                                            String.format("%.2f", getCurrentLoad()) + " kg (esta será la referencia para el día siguiente)");
+                                } else if (consumed < 0) {
+                                    // Si hay más carga que al inicio (podría pasar si se agregó manualmente)
+                                    System.out.println("\n[WAREHOUSE] Día: " + week.getCurrentDay() +
+                                            " - No hay faltante. Carga actual (" + String.format("%.2f", currentLoad) + 
+                                            " kg) mayor que al inicio del día (" + String.format("%.2f", loadAtDayStart) + " kg).");
+                                    hasRefilledToday = true;
+                                    lastRefillHour = currentHour;
+                                } else {
+                                    // No se consumió nada
+                                    System.out.println("\n[WAREHOUSE] Día: " + week.getCurrentDay() +
+                                            " - No hay faltante. Carga se mantiene igual: " + String.format("%.2f", currentLoad) + " kg");
+                                    hasRefilledToday = true;
+                                    lastRefillHour = currentHour;
+                                }
                             }
                         }
                     }
                 }
             } catch (InterruptedException e) {
-                System.out.println("🌙 Servicio de rellenado automático detenido");
+                System.out.println("[WAREHOUSE] Servicio de rellenado automático detenido");
                 Thread.currentThread().interrupt();
             }
         });
@@ -243,7 +269,19 @@ public class Warehouse {
         running = false;
         if (refillThread != null && refillThread.isAlive()) {
             refillThread.interrupt();
-            System.out.println("🛑 Deteniendo servicio de rellenado automático...");
+            System.out.println("[WAREHOUSE] Deteniendo servicio de rellenado automático...");
+        }
+    }
+
+    /**
+     * Establece la carga inicial como referencia para el cálculo de faltantes.
+     * Debe llamarse después de llenar el almacén inicialmente.
+     */
+    public void setInitialLoadReference() {
+        synchronized (refillLock) {
+            loadAtDayStart = getCurrentLoad();
+            System.out.println("[WAREHOUSE] Carga inicial establecida como referencia: " + 
+                    String.format("%.2f", loadAtDayStart) + " kg");
         }
     }
 
@@ -263,7 +301,7 @@ public class Warehouse {
      * Imprime un resumen del inventario actual por categoría.
      */
     public void printInventorySummary() {
-        System.out.println("\n📊 Resumen de inventario por categoría:");
+        System.out.println("\n[INFO] Resumen de inventario por categoría:");
 
         for (Category category : Category.values()) {
             List<Product> products = inventory.get(category);
@@ -301,7 +339,7 @@ public class Warehouse {
      */
     public void setMaxCapacity(double maxCapacity) {
         this.maxCapacity = maxCapacity;
-        System.out.println("📏 Capacidad máxima actualizada a: " + maxCapacity + " kg");
+        System.out.println("[WAREHOUSE] Capacidad máxima actualizada a: " + maxCapacity + " kg");
     }
 
     /**
@@ -332,7 +370,7 @@ public class Warehouse {
      */
     public List<Product> removeProducts(List<Product> productsToRemove) {
         List<Product> removedProducts = new ArrayList<>();
-        
+
         if (productsToRemove == null || productsToRemove.isEmpty()) {
             return removedProducts;
         }
@@ -345,11 +383,17 @@ public class Warehouse {
                 List<Product> categoryProducts = inventory.get(category);
 
                 if (categoryProducts != null) {
-                    // Buscar y remover el producto (comparando por nombre y peso para coincidencia)
-                    boolean removed = categoryProducts.removeIf(p -> 
-                        p.getName().equals(productToRemove.getName()) &&
-                        Math.abs(p.getWeight() - productToRemove.getWeight()) < 0.01
-                    );
+                    // Primero intentar remover por referencia directa (más eficiente y seguro)
+                    boolean removed = categoryProducts.remove(productToRemove);
+                    
+                    // Si no se encontró por referencia, intentar por comparación
+                    if (!removed) {
+                        removed = categoryProducts.removeIf(p -> 
+                            p == productToRemove || // Comparación por referencia primero
+                            (p.getName().equals(productToRemove.getName()) &&
+                             Math.abs(p.getWeight() - productToRemove.getWeight()) < 0.01)
+                        );
+                    }
 
                     if (removed) {
                         removedProducts.add(productToRemove);
@@ -370,7 +414,7 @@ public class Warehouse {
      */
     public List<Product> getProductsByCategory(Category category, int count) {
         List<Product> result = new ArrayList<>();
-        
+
         if (category == null || count <= 0) {
             return result;
         }
@@ -423,7 +467,7 @@ public class Warehouse {
             Category category = entry.getKey();
             int required = entry.getValue();
             List<Product> available = inventory.get(category);
-            
+
             if (available == null || available.size() < required) {
                 return false;
             }
