@@ -323,4 +323,112 @@ public class Warehouse {
     public double getOccupancyPercentage() {
         return (getCurrentLoad() / maxCapacity) * 100;
     }
+
+    /**
+     * Remueve productos del inventario.
+     *
+     * @param productsToRemove Lista de productos a remover
+     * @return Lista de productos que fueron removidos exitosamente
+     */
+    public List<Product> removeProducts(List<Product> productsToRemove) {
+        List<Product> removedProducts = new ArrayList<>();
+        
+        if (productsToRemove == null || productsToRemove.isEmpty()) {
+            return removedProducts;
+        }
+
+        synchronized (refillLock) {
+            for (Product productToRemove : productsToRemove) {
+                if (productToRemove == null) continue;
+
+                Category category = productToRemove.getCategory();
+                List<Product> categoryProducts = inventory.get(category);
+
+                if (categoryProducts != null) {
+                    // Buscar y remover el producto (comparando por nombre y peso para coincidencia)
+                    boolean removed = categoryProducts.removeIf(p -> 
+                        p.getName().equals(productToRemove.getName()) &&
+                        Math.abs(p.getWeight() - productToRemove.getWeight()) < 0.01
+                    );
+
+                    if (removed) {
+                        removedProducts.add(productToRemove);
+                    }
+                }
+            }
+        }
+
+        return removedProducts;
+    }
+
+    /**
+     * Obtiene productos de una categoría específica del inventario.
+     *
+     * @param category Categoría de productos
+     * @param count Cantidad de productos a obtener
+     * @return Lista de productos obtenidos
+     */
+    public List<Product> getProductsByCategory(Category category, int count) {
+        List<Product> result = new ArrayList<>();
+        
+        if (category == null || count <= 0) {
+            return result;
+        }
+
+        List<Product> categoryProducts = inventory.get(category);
+        if (categoryProducts == null || categoryProducts.isEmpty()) {
+            return result;
+        }
+
+        int toTake = Math.min(count, categoryProducts.size());
+        for (int i = 0; i < toTake; i++) {
+            result.add(categoryProducts.get(i));
+        }
+
+        return result;
+    }
+
+    /**
+     * Obtiene todos los productos de una categoría específica.
+     *
+     * @param category Categoría de productos
+     * @return Lista de productos de la categoría
+     */
+    public List<Product> getAllProductsByCategory(Category category) {
+        if (category == null) {
+            return new ArrayList<>();
+        }
+
+        List<Product> categoryProducts = inventory.get(category);
+        return categoryProducts != null ? new ArrayList<>(categoryProducts) : new ArrayList<>();
+    }
+
+    /**
+     * Verifica si hay suficientes productos en el inventario para una entrega.
+     *
+     * @param requiredProducts Lista de productos requeridos
+     * @return true si hay suficientes productos disponibles
+     */
+    public boolean hasEnoughProducts(List<Product> requiredProducts) {
+        if (requiredProducts == null || requiredProducts.isEmpty()) {
+            return true;
+        }
+
+        Map<Category, Integer> requiredCount = new HashMap<>();
+        for (Product product : requiredProducts) {
+            requiredCount.merge(product.getCategory(), 1, Integer::sum);
+        }
+
+        for (Map.Entry<Category, Integer> entry : requiredCount.entrySet()) {
+            Category category = entry.getKey();
+            int required = entry.getValue();
+            List<Product> available = inventory.get(category);
+            
+            if (available == null || available.size() < required) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }
