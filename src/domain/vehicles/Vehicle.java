@@ -94,9 +94,9 @@ public abstract class Vehicle implements Transportable {
         }
 
         System.out.println("[OK] Carga completada:");
-        System.out.println("   • Items cargados: " + loadedCount + "/" + items.size());
-        System.out.println("   • Peso cargado: " + String.format("%.2f", loadedWeight) + " kg");
-        System.out.println("   • Carga total: " + String.format("%.2f", currentLoad) + "/" + maxCapacity + " kg");
+        System.out.println("   - Items cargados: " + loadedCount + "/" + items.size());
+        System.out.println("   - Peso cargado: " + String.format("%.2f", loadedWeight) + " kg");
+        System.out.println("   - Carga total: " + String.format("%.2f", currentLoad) + "/" + maxCapacity + " kg");
     }
 
     /**
@@ -131,8 +131,8 @@ public abstract class Vehicle implements Transportable {
         currentLoad = 0.0;
 
         System.out.println("[OK] Descarga completada:");
-        System.out.println("   • Items descargados: " + itemCount);
-        System.out.println("   • Peso descargado: " + String.format("%.2f", unloadedWeight) + " kg");
+        System.out.println("   - Items descargados: " + itemCount);
+        System.out.println("   - Peso descargado: " + String.format("%.2f", unloadedWeight) + " kg");
     }
 
     /**
@@ -161,15 +161,15 @@ public abstract class Vehicle implements Transportable {
         this.inTransit = true;
 
         System.out.println("\n[TRANSPORT] " + getVehicleType() + " iniciando transporte:");
-        System.out.println("   • Desde: " + currentLocation);
-        System.out.println("   • Hacia: " + destination);
-        System.out.println("   • Carga: " + cargo.size() + " items (" + 
+        System.out.println("   - Desde: " + currentLocation);
+        System.out.println("   - Hacia: " + destination);
+        System.out.println("   - Carga: " + cargo.size() + " items (" + 
                 String.format("%.2f", currentLoad) + " kg)");
 
         try {
             // Simular tiempo de transporte
             double transportTime = calculateTransportTime(destination);
-            System.out.println("   • Tiempo estimado: " + String.format("%.2f", transportTime) + " horas simuladas");
+            System.out.println("   - Tiempo estimado: " + String.format("%.2f", transportTime) + " horas simuladas");
             TimeUtils.sleepSimulated(transportTime);
 
             // Llegada al destino
@@ -178,7 +178,7 @@ public abstract class Vehicle implements Transportable {
             this.destination = null;
 
             System.out.println("[OK] " + getVehicleType() + " ha llegado a " + destination);
-            System.out.println("   • Carga entregada: " + cargo.size() + " items");
+            System.out.println("   - Carga entregada: " + cargo.size() + " items");
 
         } catch (InterruptedException e) {
             System.out.println("[WARNING] Transporte interrumpido");
@@ -262,5 +262,22 @@ public abstract class Vehicle implements Transportable {
 
     public int getCargoCount() {
         return cargo.size();
+    }
+
+    /**
+     * Establece la ubicación actual del vehículo.
+     * Útil para reinicializar la posición después de entregas.
+     *
+     * @param location Nueva ubicación
+     */
+    public void setCurrentLocation(String location) {
+        if (location != null) {
+            this.currentLocation = location;
+            // Si se establece una nueva ubicación, el vehículo ya no está en tránsito
+            if (inTransit) {
+                this.inTransit = false;
+                this.destination = null;
+            }
+        }
     }
 }

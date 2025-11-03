@@ -63,11 +63,11 @@ public class testWarehouse {
             System.out.println("═══════════════════════════════════════════════════════════");
 
             System.out.println("📊 Estado actual:");
-            System.out.println("   • Día: " + week.getCurrentDay());
-            System.out.println("   • Hora: " + String.format("%.1f", clock.getCurrentSimulatedTime() % 24) + ":00");
-            System.out.println("   • Productos: " + warehouse.getTotalProducts());
-            System.out.println("   • Carga: " + String.format("%.2f", warehouse.getCurrentLoad()) + " kg");
-            System.out.println("   • Ocupación: " + String.format("%.1f", warehouse.getOccupancyPercentage()) + "%");
+            System.out.println("   - Día: " + week.getCurrentDay());
+            System.out.println("   - Hora: " + String.format("%.1f", clock.getCurrentSimulatedTime() % 24) + ":00");
+            System.out.println("   - Productos: " + warehouse.getTotalProducts());
+            System.out.println("   - Carga: " + String.format("%.2f", warehouse.getCurrentLoad()) + " kg");
+            System.out.println("   - Ocupación: " + String.format("%.1f", warehouse.getOccupancyPercentage()) + "%");
 
             warehouse.printInventorySummary();
 
@@ -79,11 +79,11 @@ public class testWarehouse {
             System.out.println("═══════════════════════════════════════════════════════════");
 
             System.out.println("📊 Estado actual:");
-            System.out.println("   • Día: " + week.getCurrentDay());
-            System.out.println("   • Hora: " + String.format("%.1f", clock.getCurrentSimulatedTime() % 24) + ":00");
-            System.out.println("   • Productos: " + warehouse.getTotalProducts());
-            System.out.println("   • Carga: " + String.format("%.2f", warehouse.getCurrentLoad()) + " kg");
-            System.out.println("   • Ocupación: " + String.format("%.1f", warehouse.getOccupancyPercentage()) + "%");
+            System.out.println("   - Día: " + week.getCurrentDay());
+            System.out.println("   - Hora: " + String.format("%.1f", clock.getCurrentSimulatedTime() % 24) + ":00");
+            System.out.println("   - Productos: " + warehouse.getTotalProducts());
+            System.out.println("   - Carga: " + String.format("%.2f", warehouse.getCurrentLoad()) + " kg");
+            System.out.println("   - Ocupación: " + String.format("%.1f", warehouse.getOccupancyPercentage()) + "%");
 
             warehouse.printInventorySummary();
 
@@ -95,13 +95,13 @@ public class testWarehouse {
             System.out.println("║                    RESUMEN FINAL DEL SISTEMA               ║");
             System.out.println("╚════════════════════════════════════════════════════════════╝");
             System.out.println("\n📊 Estado final del almacén:");
-            System.out.println("   • Día actual: " + week.getCurrentDay());
-            System.out.println("   • Hora simulada: " + String.format("%.1f", clock.getCurrentSimulatedTime() % 24) + ":00");
-            System.out.println("   • Tiempo total transcurrido: " + String.format("%.1f", clock.getCurrentSimulatedTime()) + " horas");
-            System.out.println("   • Productos en inventario: " + warehouse.getTotalProducts());
-            System.out.println("   • Carga actual: " + String.format("%.2f", warehouse.getCurrentLoad()) + " kg");
-            System.out.println("   • Capacidad máxima: " + warehouse.getMaxCapacity() + " kg");
-            System.out.println("   • Ocupación: " + String.format("%.1f", warehouse.getOccupancyPercentage()) + "%");
+            System.out.println("   - Día actual: " + week.getCurrentDay());
+            System.out.println("   - Hora simulada: " + String.format("%.1f", clock.getCurrentSimulatedTime() % 24) + ":00");
+            System.out.println("   - Tiempo total transcurrido: " + String.format("%.1f", clock.getCurrentSimulatedTime()) + " horas");
+            System.out.println("   - Productos en inventario: " + warehouse.getTotalProducts());
+            System.out.println("   - Carga actual: " + String.format("%.2f", warehouse.getCurrentLoad()) + " kg");
+            System.out.println("   - Capacidad máxima: " + warehouse.getMaxCapacity() + " kg");
+            System.out.println("   - Ocupación: " + String.format("%.1f", warehouse.getOccupancyPercentage()) + "%");
 
             warehouse.printInventorySummary();
 

@@ -2,7 +2,8 @@ package test;
 
 public class Test {
     public static void main(String[] args){
-        testDelivery.run();
+        testLogisticsSimulator.run();
+        //testDelivery.run();
         //testVehicles.run();
         //testCategory.run();
         //testTime.run();

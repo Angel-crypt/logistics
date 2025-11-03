@@ -45,7 +45,7 @@ public class Warehouse {
             inventory.put(category, new CopyOnWriteArrayList<>());
         }
 
-        System.out.println("🏭 Warehouse inicializado con capacidad máxima: " + maxCapacity + " kg");
+        System.out.println("[WAREHOUSE] Warehouse inicializado con capacidad máxima: " + maxCapacity + " kg");
     }
 
     /**
@@ -60,12 +60,12 @@ public class Warehouse {
             double availableCapacity = Math.min(maxCapacity - currentLoad, targetStock);
 
             if (availableCapacity <= 0) {
-                System.out.println("⚠️  Warehouse lleno. Capacidad actual: " +
+                System.out.println("[WARNING] Warehouse lleno. Capacidad actual: " +
                         String.format("%.2f", currentLoad) + "/" + maxCapacity + " kg");
                 return;
             }
 
-            System.out.println("\n📦 Iniciando rellenado de inventario...");
+            System.out.println("\n[WAREHOUSE] Iniciando rellenado de inventario...");
             System.out.println("   Capacidad disponible: " + String.format("%.2f", availableCapacity) + " kg");
 
             double addedWeight = 0;
@@ -91,7 +91,7 @@ public class Warehouse {
                         addedWeight += product.getWeight();
                         addedProducts++;
 
-                        System.out.println("   ✓ Agregado: " + product.getName() +
+                        System.out.println("   [+] Agregado: " + product.getName() +
                                 " (" + String.format("%.2f", product.getWeight()) + " kg) - " +
                                 category.name());
                     } else {
@@ -104,7 +104,7 @@ public class Warehouse {
                                     inventory.get(lightCategory).add(lightProduct);
                                     addedWeight += lightProduct.getWeight();
                                     addedProducts++;
-                                    System.out.println("   ✓ Agregado: " + lightProduct.getName() +
+                                    System.out.println("   [+] Agregado: " + lightProduct.getName() +
                                             " (" + String.format("%.2f", lightProduct.getWeight()) + " kg) - " +
                                             lightCategory.name());
                                     added = true;
@@ -116,16 +116,16 @@ public class Warehouse {
                     }
 
                 } catch (InterruptedException e) {
-                    System.out.println("⚠️  Proceso de rellenado interrumpido");
+                    System.out.println("[WARNING] Proceso de rellenado interrumpido");
                     Thread.currentThread().interrupt();
                     break;
                 }
             }
 
-            System.out.println("\n✅ Rellenado completado:");
-            System.out.println("   • Productos agregados: " + addedProducts);
-            System.out.println("   • Peso agregado: " + String.format("%.2f", addedWeight) + " kg");
-            System.out.println("   • Carga total: " + String.format("%.2f", getCurrentLoad()) + "/" + maxCapacity + " kg");
+            System.out.println("\n[OK] Rellenado completado:");
+            System.out.println("   - Productos agregados: " + addedProducts);
+            System.out.println("   - Peso agregado: " + String.format("%.2f", addedWeight) + " kg");
+            System.out.println("   - Carga total: " + String.format("%.2f", getCurrentLoad()) + "/" + maxCapacity + " kg");
             printInventorySummary();
         }
     }
@@ -152,7 +152,7 @@ public class Warehouse {
      */
     public void startAutomatedRefill(SimulatedClock clock, SimulatedWeek week) {
         if (running) {
-            System.out.println("⚠️  El rellenado automático ya está en ejecución");
+            System.out.println("[WARNING] El rellenado automático ya está en ejecución");
             return;
         }
 
@@ -271,7 +271,7 @@ public class Warehouse {
                     .mapToDouble(Product::getWeight)
                     .sum();
 
-            System.out.println("   • " + category + ": " + products.size() +
+            System.out.println("   - " + category + ": " + products.size() +
                     " productos (" + String.format("%.2f", categoryWeight) + " kg)");
         }
     }

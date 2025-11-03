@@ -31,7 +31,7 @@ public class testVehicles {
         Truck truck = new Truck("Almacén Central");
         System.out.println("\nProductos a cargar:");
         for (Product p : testProducts) {
-            System.out.println("   • " + p.getName() + " - " + String.format("%.2f", p.getWeight()) + " kg - " + p.getCategory());
+            System.out.println("   - " + p.getName() + " - " + String.format("%.2f", p.getWeight()) + " kg - " + p.getCategory());
         }
 
         // Convertir productos a Loadable (Product ya implementa Loadable)
@@ -39,20 +39,20 @@ public class testVehicles {
         truck.load(loadableItems);
 
         System.out.println("\n[STATUS] Estado del camión:");
-        System.out.println("   • Carga actual: " + String.format("%.2f", truck.getCurrentLoad()) + " kg");
-        System.out.println("   • Capacidad disponible: " + String.format("%.2f", truck.getAvailableCapacity()) + " kg");
-        System.out.println("   • Items cargados: " + truck.getCargoCount());
-        System.out.println("   • Ubicación: " + truck.getCurrentLocation());
+        System.out.println("   - Carga actual: " + String.format("%.2f", truck.getCurrentLoad()) + " kg");
+        System.out.println("   - Capacidad disponible: " + String.format("%.2f", truck.getAvailableCapacity()) + " kg");
+        System.out.println("   - Items cargados: " + truck.getCargoCount());
+        System.out.println("   - Ubicación: " + truck.getCurrentLocation());
 
-        truck.transport("Ciudad A");
+        truck.transport("SLP");
         System.out.println("\n[STATUS] Estado después del transporte:");
-        System.out.println("   • Ubicación actual: " + truck.getCurrentLocation());
-        System.out.println("   • En tránsito: " + truck.isInTransit());
+        System.out.println("   - Ubicación actual: " + truck.getCurrentLocation());
+        System.out.println("   - En tránsito: " + truck.isInTransit());
 
         truck.unload();
         System.out.println("\n[STATUS] Estado después de descargar:");
-        System.out.println("   • Carga actual: " + String.format("%.2f", truck.getCurrentLoad()) + " kg");
-        System.out.println("   • Vacío: " + truck.isEmpty());
+        System.out.println("   - Carga actual: " + String.format("%.2f", truck.getCurrentLoad()) + " kg");
+        System.out.println("   - Vacío: " + truck.isEmpty());
 
         System.out.println("\n═══════════════════════════════════════════════════════════");
         System.out.println("TEST 2: Avión - Carga y Restricciones");
@@ -68,20 +68,20 @@ public class testVehicles {
 
         System.out.println("\n[INFO] Productos a cargar en avión:");
         for (Product p : airplaneProducts) {
-            System.out.println("   • " + p.getName() + " - " + String.format("%.2f", p.getWeight()) + " kg - " + p.getCategory());
+            System.out.println("   - " + p.getName() + " - " + String.format("%.2f", p.getWeight()) + " kg - " + p.getCategory());
         }
 
         List<Loadable> airplaneItems = new ArrayList<>(airplaneProducts);
         airplane.load(airplaneItems);
 
         System.out.println("\n[STATUS] Estado del avión:");
-        System.out.println("   • Carga actual: " + String.format("%.2f", airplane.getCurrentLoad()) + " kg");
-        System.out.println("   • Capacidad disponible: " + String.format("%.2f", airplane.getAvailableCapacity()) + " kg");
-        System.out.println("   • Items cargados: " + airplane.getCargoCount());
+        System.out.println("   - Carga actual: " + String.format("%.2f", airplane.getCurrentLoad()) + " kg");
+        System.out.println("   - Capacidad disponible: " + String.format("%.2f", airplane.getAvailableCapacity()) + " kg");
+        System.out.println("   - Items cargados: " + airplane.getCargoCount());
 
-        airplane.transport("Ciudad B");
+        airplane.transport("ZAC");
         System.out.println("\n[STATUS] Estado después del transporte:");
-        System.out.println("   • Ubicación actual: " + airplane.getCurrentLocation());
+        System.out.println("   - Ubicación actual: " + airplane.getCurrentLocation());
 
         airplane.unload();
 
@@ -97,17 +97,17 @@ public class testVehicles {
         List<Loadable> comparisonItems = new ArrayList<>(comparisonProducts);
 
         truck2.load(comparisonItems);
-        System.out.println("\n[TIME] Tiempo estimado de transporte Camión (Almacén -> Ciudad C):");
-        System.out.println("   • Distancia: ~450 km");
-        System.out.println("   • Velocidad promedio: 70 km/h");
-        System.out.println("   • Tiempo estimado: ~" + String.format("%.2f", 450.0 / 70.0) + " horas");
+        System.out.println("\n[TIME] Tiempo estimado de transporte Camión (GDL -> AGS):");
+        System.out.println("   - Distancia: ~230 km");
+        System.out.println("   - Velocidad promedio: 70 km/h");
+        System.out.println("   - Tiempo estimado: ~" + String.format("%.2f", 230.0 / 70.0) + " horas");
 
         List<Loadable> comparisonItems2 = new ArrayList<>(comparisonProducts);
         airplane2.load(comparisonItems2);
-        System.out.println("\n[TIME] Tiempo estimado de transporte Avión (Aeropuerto -> Ciudad C):");
-        System.out.println("   • Distancia: ~2500 km");
-        System.out.println("   • Velocidad promedio: 850 km/h");
-        System.out.println("   • Tiempo estimado: ~" + String.format("%.2f", (2500.0 / 850.0) + 0.5) + " horas (incluye despegue/aterrizaje)");
+        System.out.println("\n[TIME] Tiempo estimado de transporte Avión (GDL -> AGS):");
+        System.out.println("   - Distancia: ~260 km");
+        System.out.println("   - Velocidad promedio: 850 km/h");
+        System.out.println("   - Tiempo estimado: ~" + String.format("%.2f", (260.0 / 850.0) + 0.5) + " horas (incluye despegue/aterrizaje)");
 
         System.out.println("\n[OK] Pruebas de vehículos completadas exitosamente");
     }

@@ -63,13 +63,13 @@ public class testDelivery {
 
             // Crear tareas de entrega
             System.out.println("\n--- Creando tarea de entrega 1 ---");
-            var task1 = deliveryService.createDeliveryTask(products1, "Ciudad A");
+            var task1 = deliveryService.createDeliveryTask(products1, "SLP");
             
             System.out.println("\n--- Creando tarea de entrega 2 ---");
-            var task2 = deliveryService.createDeliveryTask(products2, "Ciudad B");
+            var task2 = deliveryService.createDeliveryTask(products2, "ZAC");
             
             System.out.println("\n--- Creando tarea de entrega 3 ---");
-            var task3 = deliveryService.createDeliveryTask(products3, "Ciudad C");
+            var task3 = deliveryService.createDeliveryTask(products3, "AGS");
 
             System.out.println("\n═══════════════════════════════════════════════════════════");
             System.out.println("FASE 4: Ejecución de entregas");
@@ -100,20 +100,20 @@ public class testDelivery {
             System.out.println("═══════════════════════════════════════════════════════════");
 
             System.out.println("\n[STATUS] Estado del sistema de entregas:");
-            System.out.println("   • Total de tareas: " + deliveryService.getAllTasks().size());
-            System.out.println("   • Tareas completadas: " + deliveryService.getCompletedTasks().size());
-            System.out.println("   • Tareas pendientes: " + deliveryService.getPendingTasks().size());
+            System.out.println("   - Total de tareas: " + deliveryService.getAllTasks().size());
+            System.out.println("   - Tareas completadas: " + deliveryService.getCompletedTasks().size());
+            System.out.println("   - Tareas pendientes: " + deliveryService.getPendingTasks().size());
 
             System.out.println("\n[STATUS] Tareas completadas:");
             for (var task : deliveryService.getCompletedTasks()) {
-                System.out.println("   • " + task);
+                System.out.println("   - " + task);
                 System.out.println("     Tiempo total: " + String.format("%.2f", task.getTotalTime()) + " horas");
             }
 
             System.out.println("\n[STATUS] Estado del almacén después de las entregas:");
-            System.out.println("   • Productos restantes: " + warehouse.getTotalProducts());
-            System.out.println("   • Carga actual: " + String.format("%.2f", warehouse.getCurrentLoad()) + " kg");
-            System.out.println("   • Ocupación: " + String.format("%.1f", warehouse.getOccupancyPercentage()) + "%");
+            System.out.println("   - Productos restantes: " + warehouse.getTotalProducts());
+            System.out.println("   - Carga actual: " + String.format("%.2f", warehouse.getCurrentLoad()) + " kg");
+            System.out.println("   - Ocupación: " + String.format("%.1f", warehouse.getOccupancyPercentage()) + "%");
 
             System.out.println("\n═══════════════════════════════════════════════════════════");
             System.out.println("FASE 6: Generación de reporte");

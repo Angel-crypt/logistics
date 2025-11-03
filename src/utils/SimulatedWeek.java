@@ -34,8 +34,6 @@ public class SimulatedWeek implements Runnable {
     @Override
     public void run() {
         try {
-            System.out.println("[Week] Día simulado actual: " + getCurrentDay());
-
             while (running) {
                 Thread.sleep(100); // Verificar cada 100ms
                 double currentHour = simulatedClock.getCurrentSimulatedTime();
@@ -47,15 +45,12 @@ public class SimulatedWeek implements Runnable {
 
                     // Si llegamos al final de la semana, reiniciar
                     if (currentDayIndex >= daysOfWeek.length) {
-                        System.out.println("[Week] Reiniciando semana...");
                         currentDayIndex = 0;
                     }
-
-                    System.out.println("[Week] Día simulado actual: " + getCurrentDay());
                 }
             }
         } catch (InterruptedException e) {
-            System.out.println("[Week] Ciclo de semana detenido.");
+            // Ciclo detenido
         }
     }
 

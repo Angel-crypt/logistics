@@ -26,18 +26,17 @@ public class Airplane extends Vehicle {
 
     static {
         // Inicializar distancias comunes (típicamente mayores para aviones)
-        DISTANCES.put("Ciudad A", 500.0);
-        DISTANCES.put("Ciudad B", 1200.0);
-        DISTANCES.put("Ciudad C", 2500.0);
-        DISTANCES.put("Ciudad D", 800.0);
         DISTANCES.put("Puerto", 300.0);
         DISTANCES.put("Aeropuerto", 0.0); // El avión ya está en el aeropuerto
         DISTANCES.put("Almacén Central", 600.0);
         DISTANCES.put("Sucursal Norte", 1500.0);
         DISTANCES.put("Sucursal Sur", 1800.0);
         DISTANCES.put("Centro de Distribución", 400.0);
-        DISTANCES.put("Destino Internacional A", 5000.0);
-        DISTANCES.put("Destino Internacional B", 8000.0);
+        
+        // Rutas aéreas desde Guadalajara (GDL)
+        DISTANCES.put("SLP", 380.0);  // San Luis Potosí desde GDL (vuelo directo)
+        DISTANCES.put("ZAC", 250.0);  // Zacatecas desde GDL (vuelo directo)
+        DISTANCES.put("AGS", 260.0);  // Aguascalientes desde GDL (vuelo directo)
     }
 
     /**
@@ -49,10 +48,10 @@ public class Airplane extends Vehicle {
     public Airplane(double maxCapacity, String initialLocation) {
         super(maxCapacity, initialLocation);
         System.out.println("[AIRPLANE] Avión inicializado:");
-        System.out.println("   • Capacidad máxima: " + maxCapacity + " kg");
-        System.out.println("   • Ubicación inicial: " + initialLocation);
-        System.out.println("   • Tipo: Transporte aéreo");
-        System.out.println("   • Restricción: Items individuales máximo " + MAX_ITEM_WEIGHT + " kg");
+        System.out.println("   - Capacidad máxima: " + maxCapacity + " kg");
+        System.out.println("   - Ubicación inicial: " + initialLocation);
+        System.out.println("   - Tipo: Transporte aéreo");
+        System.out.println("   - Restricción: Items individuales máximo " + MAX_ITEM_WEIGHT + " kg");
     }
 
     /**

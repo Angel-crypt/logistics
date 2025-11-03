@@ -21,16 +21,41 @@ public class Truck extends Vehicle {
 
     static {
         // Inicializar distancias comunes
-        DISTANCES.put("Ciudad A", 150.0);
-        DISTANCES.put("Ciudad B", 300.0);
-        DISTANCES.put("Ciudad C", 450.0);
-        DISTANCES.put("Ciudad D", 200.0);
         DISTANCES.put("Puerto", 100.0);
         DISTANCES.put("Aeropuerto", 50.0);
         DISTANCES.put("Almacén Central", 250.0);
         DISTANCES.put("Sucursal Norte", 180.0);
         DISTANCES.put("Sucursal Sur", 220.0);
         DISTANCES.put("Centro de Distribución", 120.0);
+        
+        // Rutas desde Guadalajara (GDL)
+        DISTANCES.put("SLP", 350.0);  // San Luis Potosí desde GDL
+        DISTANCES.put("ZAC", 220.0);  // Zacatecas desde GDL
+        DISTANCES.put("AGS", 230.0);  // Aguascalientes desde GDL
+        DISTANCES.put("GDL", 0.0);    // Entregas locales en Guadalajara
+    }
+    
+    /** Enum para tipos de camión */
+    public enum TruckSize {
+        GRANDE(500.0, "Camión Grande"),
+        MEDIANO(250.0, "Camión Mediano"),
+        PEQUEÑO(150.0, "Camión Pequeño");
+        
+        private final double capacity;
+        private final String description;
+        
+        TruckSize(double capacity, String description) {
+            this.capacity = capacity;
+            this.description = description;
+        }
+        
+        public double getCapacity() {
+            return capacity;
+        }
+        
+        public String getDescription() {
+            return description;
+        }
     }
 
     /**
@@ -42,9 +67,9 @@ public class Truck extends Vehicle {
     public Truck(double maxCapacity, String initialLocation) {
         super(maxCapacity, initialLocation);
         System.out.println("[TRUCK] Camión inicializado:");
-        System.out.println("   • Capacidad máxima: " + maxCapacity + " kg");
-        System.out.println("   • Ubicación inicial: " + initialLocation);
-        System.out.println("   • Tipo: Transporte terrestre");
+        System.out.println("   - Capacidad máxima: " + maxCapacity + " kg");
+        System.out.println("   - Ubicación inicial: " + initialLocation);
+        System.out.println("   - Tipo: Transporte terrestre");
     }
 
     /**
@@ -54,6 +79,17 @@ public class Truck extends Vehicle {
      */
     public Truck(String initialLocation) {
         this(20000.0, initialLocation);
+    }
+
+    /**
+     * Constructor con tamaño específico de camión.
+     *
+     * @param size Tamaño del camión (GRANDE, MEDIANO, PEQUEÑO)
+     * @param initialLocation Ubicación inicial del camión
+     */
+    public Truck(TruckSize size, String initialLocation) {
+        this(size.getCapacity(), initialLocation);
+        System.out.println("   - Tamaño: " + size.getDescription());
     }
 
     /**

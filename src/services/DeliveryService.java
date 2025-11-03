@@ -78,10 +78,10 @@ public class DeliveryService {
         deliveryTasks.add(task);
 
         System.out.println("[DELIVERY_SERVICE] Nueva tarea de entrega creada:");
-        System.out.println("   • ID: " + task.getTaskId());
-        System.out.println("   • Destino: " + destination);
-        System.out.println("   • Productos: " + products.size());
-        System.out.println("   • Peso total: " + String.format("%.2f", task.getTotalWeight()) + " kg");
+        System.out.println("   - ID: " + task.getTaskId());
+        System.out.println("   - Destino: " + destination);
+        System.out.println("   - Productos: " + products.size());
+        System.out.println("   - Peso total: " + String.format("%.2f", task.getTotalWeight()) + " kg");
 
         deliveryReport.addEntryWithTimestamp(
             String.format("Tarea %s creada: %d productos, %.2f kg, destino: %s",
@@ -123,26 +123,42 @@ public class DeliveryService {
             return false;
         }
 
-        if (!task.canBeAssigned()) {
-            System.out.println("[WARNING] La tarea " + task.getTaskId() + " no puede ser asignada");
-            return false;
-        }
-
-        // Buscar un vehículo disponible
-        Vehicle vehicle = findAvailableVehicle(task.getTotalWeight());
+        // Verificar si la tarea ya tiene un vehículo asignado
+        Vehicle vehicle = task.getAssignedVehicle();
+        
         if (vehicle == null) {
-            System.out.println("[WARNING] No hay vehículos disponibles para la tarea " + task.getTaskId());
-            deliveryReport.addEntryWithTimestamp(
-                String.format("Tarea %s: No se pudo asignar vehículo (peso: %.2f kg)",
-                    task.getTaskId(), task.getTotalWeight())
-            );
-            return false;
-        }
+            // Si no hay vehículo asignado, buscar uno disponible
+            if (!task.canBeAssigned()) {
+                System.out.println("[WARNING] La tarea " + task.getTaskId() + " no puede ser asignada");
+                return false;
+            }
 
-        // Asignar vehículo
-        if (!task.assignVehicle(vehicle)) {
-            System.out.println("[WARNING] No se pudo asignar el vehículo a la tarea " + task.getTaskId());
-            return false;
+            vehicle = findAvailableVehicle(task.getTotalWeight());
+            if (vehicle == null) {
+                System.out.println("[WARNING] No hay vehículos disponibles para la tarea " + task.getTaskId());
+                deliveryReport.addEntryWithTimestamp(
+                    String.format("Tarea %s: No se pudo asignar vehículo (peso: %.2f kg)",
+                        task.getTaskId(), task.getTotalWeight())
+                );
+                return false;
+            }
+
+            // Asignar vehículo
+            if (!task.assignVehicle(vehicle)) {
+                System.out.println("[WARNING] No se pudo asignar el vehículo a la tarea " + task.getTaskId());
+                return false;
+            }
+        } else {
+            // Verificar que el vehículo asignado esté disponible
+            if (vehicle.isInTransit()) {
+                System.out.println("[WARNING] El vehículo asignado a la tarea " + task.getTaskId() + " está en tránsito");
+                return false;
+            }
+            
+            if (vehicle.getAvailableCapacity() < task.getTotalWeight()) {
+                System.out.println("[WARNING] El vehículo asignado a la tarea " + task.getTaskId() + " no tiene suficiente capacidad");
+                return false;
+            }
         }
 
         System.out.println("[DELIVERY_SERVICE] Ejecutando entrega " + task.getTaskId() + "...");
@@ -173,7 +189,7 @@ public class DeliveryService {
 
         System.out.println("[OK] Entrega " + task.getTaskId() + " completada exitosamente");
 
-        // Agregar al reporte
+        // Agregar al reporte general
         deliveryReport.addEntryWithTimestamp(
             String.format("Tarea %s completada: %d productos entregados en %.2f horas",
                 task.getTaskId(), task.getProductCount(), task.getTotalTime())
@@ -251,7 +267,89 @@ public class DeliveryService {
             ));
         }
 
-        deliveryReport.saveEntry(filePath);
+        // Asegurar que el path esté en la carpeta reports
+        String finalPath = ensureReportsFolder(filePath);
+        deliveryReport.saveEntry(finalPath);
+    }
+
+    /**
+     * Genera un reporte específico por ciudad y envío.
+     *
+     * @param city Ciudad de destino
+     * @param deliveryNumber Número de envío
+     * @param task Tarea de entrega
+     */
+    public void generateCityDeliveryReport(String city, int deliveryNumber, DeliveryTask task) {
+        DeliveryReport cityReport = new DeliveryReport(
+            String.format("Reporte de Entrega - %s - Envío #%d", city, deliveryNumber)
+        );
+        
+        cityReport.addEntry("=== INFORMACIÓN DE LA ENTREGA ===");
+        cityReport.addEntry("Ciudad: " + city);
+        cityReport.addEntry("Número de envío: " + deliveryNumber);
+        cityReport.addEntry("ID de tarea: " + task.getTaskId());
+        cityReport.addEntry("Fecha de creación: " + String.format("%.2f", task.getCreatedAt()) + " horas simuladas");
+        cityReport.addEntry("");
+        
+        cityReport.addEntry("=== DETALLES DEL ENVÍO ===");
+        cityReport.addEntry("Estado: " + task.getStatus());
+        cityReport.addEntry("Número de productos: " + task.getProductCount());
+        cityReport.addEntry("Peso total: " + String.format("%.2f", task.getTotalWeight()) + " kg");
+        
+        if (task.getAssignedVehicle() != null) {
+            cityReport.addEntry("Vehículo: " + task.getAssignedVehicle().getClass().getSimpleName());
+            cityReport.addEntry("Capacidad del vehículo: " + String.format("%.2f", task.getAssignedVehicle().getMaxCapacity()) + " kg");
+        }
+        
+        if (task.getTotalTime() > 0) {
+            cityReport.addEntry("Tiempo de entrega: " + String.format("%.2f", task.getTotalTime()) + " horas simuladas");
+            cityReport.addEntry("Fecha de finalización: " + String.format("%.2f", task.getCompletedAt()) + " horas simuladas");
+        }
+        
+        cityReport.addEntry("");
+        cityReport.addEntry("=== PRODUCTOS ENTREGADOS ===");
+        for (Product product : task.getProducts()) {
+            cityReport.addEntry(String.format(
+                "- %s (%.2f kg) - %s - Tamaño: %s",
+                product.getName(), product.getWeight(), product.getCategory(), product.getSizeClassification()
+            ));
+        }
+        
+        cityReport.addEntry("");
+        cityReport.addEntry("=== RESUMEN POR CATEGORÍA ===");
+        var categorySummary = task.getCategorySummary();
+        for (var entry : categorySummary.entrySet()) {
+            cityReport.addEntry(entry.getKey() + ": " + entry.getValue() + " productos");
+        }
+        
+        // Guardar en carpeta reports con estructura: reports/{ciudad}/envio_{numero}.txt
+        String fileName = String.format("reports/%s/envio_%d.txt", city, deliveryNumber);
+        cityReport.saveEntry(fileName);
+    }
+
+    /**
+     * Asegura que la ruta del archivo esté en la carpeta reports.
+     *
+     * @param filePath Ruta original del archivo
+     * @return ruta corregida en la carpeta reports
+     */
+    private String ensureReportsFolder(String filePath) {
+        if (filePath == null || filePath.trim().isEmpty()) {
+            return "reports/reporte_general.txt";
+        }
+        
+        // Si ya está en reports, devolver tal cual
+        if (filePath.startsWith("reports/") || filePath.startsWith("./reports/")) {
+            return filePath.startsWith("./") ? filePath : filePath;
+        }
+        
+        // Si no tiene extensión, agregar .txt
+        if (!filePath.endsWith(".txt")) {
+            filePath += ".txt";
+        }
+        
+        // Agregar prefijo reports/
+        return "reports/" + filePath;
     }
 
     /**
